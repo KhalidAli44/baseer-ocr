@@ -11,10 +11,10 @@ __pycache__/
 *~
 
 # Output
-output/
+/output/
 
 # Data files and images
-data/
+/data/
 
 # Models
-models/
+/models/
