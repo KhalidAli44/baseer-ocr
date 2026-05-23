@@ -1,13 +1,7 @@
 import cv2
 import numpy as np
 
-AH_HEIGHT_MIN   = 0.5
-AH_HEIGHT_MAX   = 2.0
-AH_AREA_MIN     = 0.05
-MIN_CHAR_WIDTH  = 0.1
-MAX_CHAR_WIDTH  = 1.8
-CHOP_MIN_VALLEY = 0.35
-CHOP_MAX_WIDTH  = 0.4
+from src.config import parameters
 
 
 def _cut_candidates(blob_inv, midpoint_radius=4):
@@ -20,7 +14,7 @@ def _cut_candidates(blob_inv, midpoint_radius=4):
     if col_thickness.max() > 0:
         norm    = col_thickness / col_thickness.max()
         valleys = [x for x in range(1, w - 1)
-                   if norm[x] < CHOP_MIN_VALLEY
+                   if norm[x] < parameters["chars"]["chop_min_valley"]
                    and norm[x] <= norm[x - 1]
                    and norm[x] <= norm[x + 1]]
 
@@ -36,7 +30,6 @@ def _cut_candidates(blob_inv, midpoint_radius=4):
                    if 1 <= x <= w - 1]
 
     return sorted(set(valleys + mid_window + q1_window + q3_window))
-
 
 def _best_cut(cut_xs, start, w, min_cw, ah, relaxed=False):
     best_end, best_score = None, float("inf")
@@ -54,12 +47,11 @@ def _best_cut(cut_xs, start, w, min_cw, ah, relaxed=False):
             best_end   = end
     return best_end
 
-
 def _chop_blob(blob_inv, blob_x, blob_y, ah):
     h, w   = blob_inv.shape
-    min_cw = int(MIN_CHAR_WIDTH * ah * 5)
+    min_cw = int(parameters["chars"]["min_char_width"] * ah * 5)
 
-    if w <= MAX_CHAR_WIDTH * ah:
+    if w <= parameters["chars"]["max_char_width"] * ah:
         return [(blob_x, blob_y, blob_x + w, blob_y + h)]
 
     cuts = _cut_candidates(blob_inv)
@@ -91,22 +83,20 @@ def _chop_blob(blob_inv, blob_x, blob_y, ah):
 
     return result
 
-
 def _valid_char(x1, y1, x2, y2, ah):
     w, h = x2 - x1, y2 - y1
     if h == 0 or w == 0:
         return False
     return (
-        AH_HEIGHT_MIN * ah < h < AH_HEIGHT_MAX * ah
-        and w * h > AH_AREA_MIN * ah * ah
-        and MIN_CHAR_WIDTH * ah < w < MAX_CHAR_WIDTH * ah
+        parameters["average"]["height_min"] * ah < h < parameters["average"]["height_max"] * ah
+        and w * h > parameters["average"]["area_min"] * ah * ah
+        and parameters["chars"]["min_char_width"] * ah < w < parameters["chars"]["max_char_width"] * ah
     )
-
 
 def detect_chars(word_binary, word_x, word_y, ah):
     inv    = 255 - word_binary
     n, _, stats, _ = cv2.connectedComponentsWithStats(inv, connectivity=8)
-    max_single_w   = int(CHOP_MAX_WIDTH * ah)
+    max_single_w   = int(parameters["chars"]["max_char_width"] * ah)
 
     all_comps, chars = [], []
 
@@ -115,7 +105,7 @@ def detect_chars(word_binary, word_x, word_y, ah):
         ax1, ay1 = word_x + bx, word_y + by
         ax2, ay2 = ax1 + bw, ay1 + bh
         all_comps.append((ax1, ay1, ax2, ay2))
-        if bh < AH_HEIGHT_MIN * ah or area < AH_AREA_MIN * ah * ah:
+        if bh < parameters["average"]["height_min"] * ah or area < parameters["average"]["area_min"] * ah * ah:
             continue
         if bw <= max_single_w:
             chars.append((ax1, ay1, ax2, ay2))

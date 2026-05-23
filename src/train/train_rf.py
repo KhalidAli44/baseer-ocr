@@ -1,5 +1,5 @@
 import os
-import cv2
+
 import numpy as np
 import pickle
 from sklearn.ensemble import RandomForestClassifier
@@ -7,16 +7,16 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.model_selection import cross_val_score
 from torchvision import datasets
 
-from features import extract_batch
-from config import MODELS_DIR, EMNIST_DIR, RF_MODEL_PATH, RF_SCALER_PATH, RF_ENCODER_PATH
+from src.config import parameters
+from src.utils.features import extract_batch
 
 SPLIT         = "byclass"
 MAX_PER_CLASS = 1000
 
 
 def _load_emnist():
-    train = datasets.EMNIST(root=EMNIST_DIR, split=SPLIT, train=True, download=True)
-    test = datasets.EMNIST(root=EMNIST_DIR, split=SPLIT, train=False, download=True)
+    train = datasets.EMNIST(root=parameters["train_dirs"]["emnist"], split=SPLIT, train=True, download=True)
+    test = datasets.EMNIST(root=parameters["train_dirs"]["emnist"], split=SPLIT, train=False, download=True)
     
     imgs = np.concatenate([train.data.numpy(), test.data.numpy()], axis=0)
     labels = np.concatenate([train.targets.numpy(), test.targets.numpy()], axis=0)
@@ -62,8 +62,8 @@ def _prepare_samples(imgs, labels, idx_to_char):
 
 
 def train():
-    os.makedirs(MODELS_DIR, exist_ok=True)
-    os.makedirs(EMNIST_DIR, exist_ok=True)
+    os.makedirs(parameters["train_dirs"]["models"], exist_ok=True)
+    os.makedirs(parameters["train_dirs"]["emnist"], exist_ok=True)
     
     print("Loading EMNIST...")
     imgs, labels, idx_to_char = _load_emnist()
@@ -99,13 +99,13 @@ def train():
     scores = cross_val_score(clf, X_scaled, y, cv=3, scoring="accuracy", n_jobs=-1)
     print(f"Cross-val accuracy: {scores.mean():.3f} ± {scores.std():.3f}")
     
-    with open(RF_MODEL_PATH, "wb") as f:
+    with open(parameters["RF"]["model_path"], "wb") as f:
         pickle.dump(clf, f)
-    with open(RF_SCALER_PATH, "wb") as f:
+    with open(parameters["RF"]["scaler_path"], "wb") as f:
         pickle.dump(scaler, f)
-    with open(RF_ENCODER_PATH, "wb") as f:
+    with open(parameters["RF"]["encoder_path"], "wb") as f:
         pickle.dump(encoder, f)
-    print(f"Saved: {RF_MODEL_PATH}, {RF_SCALER_PATH}, {RF_ENCODER_PATH}")
+    print(f"Saved: {parameters['RF']['model_path']}, {parameters['RF']['scaler_path']}, {parameters['RF']['encoder_path']}")
 
 
 if __name__ == "__main__":

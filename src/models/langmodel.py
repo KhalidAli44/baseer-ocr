@@ -3,13 +3,7 @@ import pickle
 import math
 import os
 
-from config import MODELS_DIR
-
-BIGRAM_PATH     = f"{MODELS_DIR}/langmodel/bigrams.json"
-DAWG_PATH       = f"{MODELS_DIR}/langmodel/dawg.pkl"
-BIGRAM_WEIGHT   = 0.3
-DAWG_BOOST      = 0.25
-UNKNOWN_PENALTY = 0.1
+from src.config import parameters
 
 
 class DawgNode:
@@ -23,12 +17,12 @@ class LanguageModel:
         self._bigrams = None
         self._dawg    = None
 
-        if os.path.exists(BIGRAM_PATH):
-            with open(BIGRAM_PATH, "r", encoding="utf-8") as f:
+        if os.path.exists(parameters["langmodel"]["bigram_path"]):
+            with open(parameters["langmodel"]["bigram_path"], "r", encoding="utf-8") as f:
                 self._bigrams = json.load(f)
 
-        if os.path.exists(DAWG_PATH):
-            with open(DAWG_PATH, "rb") as f:
+        if os.path.exists(parameters["langmodel"]["dawg_path"]):
+            with open(parameters["langmodel"]["dawg_path"], "rb") as f:
                 self._dawg = pickle.load(f)
 
     @property
@@ -66,7 +60,7 @@ class LanguageModel:
             seq          = (context + char).strip()
             bigram_score = self._bigram_score(seq) if len(seq) >= 2 else 0.0
             bigram_norm  = 1.0 / (1.0 + math.exp(-bigram_score))
-            combined     = (1.0 - BIGRAM_WEIGHT) * clf_conf + BIGRAM_WEIGHT * bigram_norm
+            combined     = (1.0 - parameters["langmodel"]["bigram_weight"]) * clf_conf + parameters["langmodel"]["bigram_weight"] * bigram_norm
             rescored.append((char, combined))
 
         rescored.sort(key=lambda x: x[1], reverse=True)
@@ -78,5 +72,5 @@ class LanguageModel:
         bigram   = self._bigram_score(word)
         bigram_n = 1.0 / (1.0 + math.exp(-bigram))
         in_dict  = self._in_dawg(word)
-        boost    = DAWG_BOOST if in_dict else 0.0
-        return min(1.0, (1.0 - BIGRAM_WEIGHT) * clf_conf + BIGRAM_WEIGHT * bigram_n + boost)
+        boost    = parameters["langmodel"]["dawg_boost"] if in_dict else 0.0
+        return min(1.0, (1.0 - parameters["langmodel"]["bigram_weight"]) * clf_conf + parameters["langmodel"]["bigram_weight"] * bigram_n + boost)

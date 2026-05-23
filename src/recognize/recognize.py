@@ -1,22 +1,16 @@
 import os
 import pickle
+
 import cv2
-import numpy as np
 from collections import defaultdict
 from datetime import datetime
+import numpy as np
 from textblob import TextBlob
 
-from config import CHARS_DIR, WORDS_DIR, OUTPUT_DIR, DAWG_PATH
-from svm_classifier import SVMClassifier
-# from cnn_classifier import CNNClassifier
-# from rf_classifier  import RFClassifier
-
-HIGH_CONF = 0.75
-MIN_CONF = 0.30
-MIN_WORD_CONF = 0.30
-MAX_QUESTION_MARK_RATIO = 0.25
-MAX_CANDIDATES = 5
-MERGE_THRESHOLD = 0.60
+from src.config import output_paths, parameters
+from src.models.svm_classifier import SVMClassifier
+# from src.models.cnn_classifier import CNNClassifier
+# from src.models.rf_classifier  import RFClassifier
 
 
 class DecoderReport:
@@ -67,10 +61,10 @@ class DecoderReport:
 
 
 def _load_dawg():
-    if not os.path.exists(DAWG_PATH):
+    if not os.path.exists(parameters["langmodel"]["dawg_path"]):
         print("Warning: DAWG not found, falling back to top-1 predictions")
         return None
-    with open(DAWG_PATH, "rb") as f:
+    with open(parameters["langmodel"]["dawg_path"], "rb") as f:
         return pickle.load(f)
 
 
@@ -199,8 +193,8 @@ def _try_merge_characters(clf, img1, img2, report=None, pos=None):
             {'merged_image_shape': merged_img.shape, 
              'top_candidate': merged_char, 
              'confidence': f"{merged_conf:.3f}",
-             'threshold': MERGE_THRESHOLD,
-             'will_use': merged_conf >= MERGE_THRESHOLD}
+             'threshold': parameters["recognize"]["merge_threshold"],
+             'will_use': merged_conf >= parameters["recognize"]["merge_threshold"]}
         )
     
     return merged_char, merged_conf
@@ -228,13 +222,13 @@ def decode_word_with_search(char_entries, char_images, candidates_list, clf, daw
         report.add_step(
             "CONFIDENCE_ANALYSIS",
             "Analyzing character confidence levels",
-            {'high_confidence_threshold': HIGH_CONF, 'min_confidence': MIN_CONF}
+            {'high_confidence_threshold': parameters["recognize"]["high_conf"], 'min_confidence': parameters["recognize"]["min_conf"]}
         )
     
     for i, candidates in enumerate(candidates_list):
         top_char, top_conf = candidates[0]
         top_chars.append(top_char)
-        is_locked = top_conf >= HIGH_CONF
+        is_locked = top_conf >= parameters["recognize"]["high_conf"]
         locked_mask.append(is_locked)
         
         if not is_locked:
@@ -243,7 +237,7 @@ def decode_word_with_search(char_entries, char_images, candidates_list, clf, daw
         candidates_per_pos.append(candidates)
         
         if report:
-            candidate_list = [(c, f"{s:.3f}") for c, s in candidates[:MAX_CANDIDATES]]
+            candidate_list = [(c, f"{s:.3f}") for c, s in candidates[:parameters["recognize"]["max_candidates"]]]
             report.add_step(
                 "CHARACTER_INFO",
                 f"Character {i}: Top prediction '{top_char}' (conf={top_conf:.3f})",
@@ -367,7 +361,7 @@ def decode_word_with_search(char_entries, char_images, candidates_list, clf, daw
                 clf, char_images[i], char_images[j], report, i
             )
             
-            if merged_char and merged_conf >= MERGE_THRESHOLD:
+            if merged_char and merged_conf >= parameters["recognize"]["merge_threshold"]:
                 if report:
                     report.add_step(
                         "MERGE_SUCCESS",
@@ -408,7 +402,7 @@ def decode_word_with_search(char_entries, char_images, candidates_list, clf, daw
                 if report:
                     report.add_step(
                         "MERGE_FAIL",
-                        f"Merge attempt failed (confidence {merged_conf:.3f} < {MERGE_THRESHOLD})",
+                        f"Merge attempt failed (confidence {merged_conf:.3f} < {parameters['recognize']['merge_threshold']})",
                         {'merged_char': merged_char, 'confidence': f"{merged_conf:.3f}"}
                     )
         
@@ -449,14 +443,14 @@ def decode_word_with_search(char_entries, char_images, candidates_list, clf, daw
     
     for i, (candidates, locked) in enumerate(zip(candidates_list, locked_mask)):
         top_char, top_conf = candidates[0]
-        if not locked and top_conf < MIN_CONF:
+        if not locked and top_conf < parameters['recognize']['min_conf']:
             # result_chars.append("?")
             result_chars.append(top_char)
             fallback_confidences.append(top_conf)
             if report:
                 report.add_step(
                     "LOW_CONF_MARK",
-                    f"Character {i}: Marked as '?' (conf={top_conf:.3f} < {MIN_CONF})",
+                    f"Character {i}: Marked as '?' (conf={top_conf:.3f} < {parameters['recognize']['min_conf']})",
                     {'position': i, 'original_char': top_char, 'confidence': f"{top_conf:.3f}"}
                 )
         else:
@@ -483,18 +477,18 @@ def decode_word_with_search(char_entries, char_images, candidates_list, clf, daw
 def should_filter_word(word, word_confidence):
     if not word:
         return True
-    if word_confidence < MIN_WORD_CONF:
+    if word_confidence < parameters["recognize"]["min_word_conf"]:
         return True
     question_mark_count = word.count('?')
     question_mark_ratio = question_mark_count / len(word) if len(word) > 0 else 1.0
-    if question_mark_ratio >= MAX_QUESTION_MARK_RATIO:
+    if question_mark_ratio >= parameters["recognize"]["max_question_mark_ratio"]:
         return True
     return False
 
 
 def _load_char_crops():
     entries = []
-    for fname in sorted(os.listdir(CHARS_DIR)):
+    for fname in sorted(os.listdir(output_paths["chars"])):
         if not fname.endswith(".png"):
             continue
         parts = fname.replace(".png", "").split("_")
@@ -502,13 +496,13 @@ def _load_char_crops():
         frame_idx = int(parts[1][1:])
         word_idx = int(parts[2][1:])
         x = int(parts[3][1:])
-        entries.append((char_idx, frame_idx, word_idx, x, os.path.join(CHARS_DIR, fname)))
+        entries.append((char_idx, frame_idx, word_idx, x, os.path.join(output_paths["chars"], fname)))
     return sorted(entries, key=lambda e: (e[1], e[2], e[3]))
 
 
 def _load_word_line_map():
     mapping = {}
-    for fname in sorted(os.listdir(WORDS_DIR)):
+    for fname in sorted(os.listdir(output_paths["words"])):
         if not fname.endswith(".png"):
             continue
         parts = fname.replace(".png", "").split("_")
@@ -521,7 +515,7 @@ def _load_word_line_map():
 
 
 def recognize():
-    if not os.path.exists(CHARS_DIR) or not os.listdir(CHARS_DIR):
+    if not os.path.exists(output_paths["chars"]) or not os.listdir(output_paths["chars"]):
         print("No character crops found. Run detect first.")
         return ""
     
@@ -584,17 +578,17 @@ def recognize():
         )
         all_reports.append(report.generate_report())
     
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    report_path = f"{OUTPUT_DIR}/decoding_report.txt"
+    os.makedirs(output_paths["recognize"], exist_ok=True)
+    report_path = f"{output_paths['recognize']}/decoding_report.txt"
     with open(report_path, "w", encoding="utf-8") as f:
         f.write("="*80 + "\n")
         f.write("OCR DECODING REPORT\n")
         f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         f.write("="*80 + "\n")
         f.write(f"Dictionary loaded: {dawg is not None}\n")
-        f.write(f"High confidence threshold: {HIGH_CONF}\n")
-        f.write(f"Min confidence threshold: {MIN_CONF}\n")
-        f.write(f"Merge threshold: {MERGE_THRESHOLD}\n")
+        f.write(f"High confidence threshold: {parameters['recognize']['high_conf']}\n")
+        f.write(f"Min confidence threshold: {parameters['recognize']['min_conf']}\n")
+        f.write(f"Merge threshold: {parameters['recognize']['merge_threshold']}\n")
         f.write("="*80 + "\n")
         
         for report in all_reports:
@@ -615,7 +609,7 @@ def recognize():
         for k in sorted(line_words)
     )
     
-    with open(f"{OUTPUT_DIR}/recognized.txt", "w", encoding="utf-8") as f:
+    with open(f"{output_paths['recognize']}/recognized.txt", "w", encoding="utf-8") as f:
         f.write(raw_text_out)
     
     corrected_lines = []
@@ -635,7 +629,7 @@ def recognize():
     
     text_out = '\n'.join(corrected_lines)
     
-    with open(f"{OUTPUT_DIR}/corrected_recognized.txt", "w", encoding="utf-8") as f:
+    with open(f"{output_paths['recognize']}/corrected_recognized.txt", "w", encoding="utf-8") as f:
         f.write(text_out)
     
     print(f"[3] Recognition done")

@@ -1,9 +1,7 @@
 import cv2
 import numpy as np
 
-from config import AH_HEIGHT_MIN, AH_HEIGHT_MAX, AH_AREA_MIN
-
-WORD_GAP_SCALE = 0.75
+from src.config import parameters
 
 
 def _extract_blobs(strip_inv, ah):
@@ -11,15 +9,14 @@ def _extract_blobs(strip_inv, ah):
     blobs = []
     for i in range(1, n):
         x, y, w, h, area = stats[i]
-        if (AH_HEIGHT_MIN * ah < h < AH_HEIGHT_MAX * ah
-                and area > AH_AREA_MIN * ah * ah):
+        if (parameters["average"]["height_min"] * ah < h < parameters["average"]["height_max"] * ah
+                and area > parameters["average"]["area_min"] * ah * ah):
             blobs.append((x, y, x + w, y + h))
     return sorted(blobs, key=lambda b: b[0])
 
-
 def _estimate_word_gap_threshold(blobs, ah):
     if len(blobs) < 2:
-        return ah * WORD_GAP_SCALE
+        return ah * parameters["words"]["word_gap_scale"]
 
     gaps = []
     for i in range(1, len(blobs)):
@@ -28,7 +25,7 @@ def _estimate_word_gap_threshold(blobs, ah):
             gaps.append(gap)
 
     if not gaps:
-        return ah * WORD_GAP_SCALE
+        return ah * parameters["words"]["word_gap_scale"]
 
     gaps = np.array(sorted(gaps), dtype=np.float32)
 
@@ -47,7 +44,6 @@ def _estimate_word_gap_threshold(blobs, ah):
 
     threshold = (mean_small + mean_large) / 2.0
     return max(threshold, ah * 0.3)
-
 
 def _group_blobs_into_words(blobs, threshold):
     if not blobs:
@@ -68,7 +64,6 @@ def _group_blobs_into_words(blobs, threshold):
          max(b[2] for b in w), max(b[3] for b in w))
         for w in words
     ]
-
 
 def detect_words(binary, ls, le, ah):
     strip_inv = 255 - binary[ls:le, :]

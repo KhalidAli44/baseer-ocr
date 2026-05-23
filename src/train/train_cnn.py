@@ -1,16 +1,16 @@
 import os
-import cv2
+
 import numpy as np
 import pickle
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
+from torchvision import datasets
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
-from torchvision import datasets
 
-from config import MODELS_DIR, EMNIST_DIR, CNN_MODEL_PATH, CNN_ENCODER_PATH
+from src.config import parameters
 
 SPLIT         = "byclass"
 MAX_PER_CLASS = 1000
@@ -55,8 +55,8 @@ class CNN(nn.Module):
 
 
 def _load_emnist():
-    train = datasets.EMNIST(root=EMNIST_DIR, split=SPLIT, train=True, download=True)
-    test = datasets.EMNIST(root=EMNIST_DIR, split=SPLIT, train=False, download=True)
+    train = datasets.EMNIST(root=parameters["train_dirs"]["emnist"], split=SPLIT, train=True, download=True)
+    test = datasets.EMNIST(root=parameters["train_dirs"]["emnist"], split=SPLIT, train=False, download=True)
     
     imgs = np.concatenate([train.data.numpy(), test.data.numpy()], axis=0)
     labels = np.concatenate([train.targets.numpy(), test.targets.numpy()], axis=0)
@@ -102,8 +102,8 @@ def _prepare_samples(imgs, labels, idx_to_char):
 
 
 def train():
-    os.makedirs(MODELS_DIR, exist_ok=True)
-    os.makedirs(EMNIST_DIR, exist_ok=True)
+    os.makedirs(parameters["train_dirs"]["models"], exist_ok=True)
+    os.makedirs(parameters["train_dirs"]["emnist"], exist_ok=True)
     
     print("Loading EMNIST...")
     imgs, labels, idx_to_char = _load_emnist()
@@ -177,10 +177,10 @@ def train():
         val_acc = 100. * val_correct / val_total
         print(f"Epoch {epoch+1}/{EPOCHS}: Train Loss: {train_loss/len(train_loader):.4f}, Train Acc: {train_acc:.2f}%, Val Acc: {val_acc:.2f}%")
     
-    torch.save(model.state_dict(), CNN_MODEL_PATH)
-    with open(CNN_ENCODER_PATH, "wb") as f:
+    torch.save(model.state_dict(), parameters["CNN"]["model_path"])
+    with open(parameters["CNN"]["encoder_path"], "wb") as f:
         pickle.dump(encoder, f)
-    print(f"Saved: {CNN_MODEL_PATH}, {CNN_ENCODER_PATH}")
+    print(f"Saved: {parameters['CNN']['model_path']}, {parameters['CNN']['encoder_path']}")
 
 
 if __name__ == "__main__":

@@ -2,15 +2,11 @@ import os
 import json
 import pickle
 import re
-from collections import defaultdict, Counter
-from langmodel import DawgNode
-from config import MODELS_DIR
 
-CORPUS_PATH = "data/books.txt"
-BIGRAM_PATH = f"{MODELS_DIR}/langmodel/bigrams.json"
-DAWG_PATH = f"{MODELS_DIR}/langmodel/dawg.pkl"
-SMOOTHING = 0.01
-MIN_WORD_FREQUENCY = 2  # Only include words appearing at least this many times
+from collections import defaultdict, Counter
+
+from src.config import parameters
+from src.models.langmodel import DawgNode
 
 
 def _load_corpus(path):
@@ -33,9 +29,9 @@ def _build_bigrams(text):
     probs = {}
     for a in alphabet:
         probs[a] = {}
-        total = totals[a] + SMOOTHING * len(alphabet)
+        total = totals[a] + parameters["langmodel"]["smoothing"] * len(alphabet)
         for b in alphabet:
-            probs[a][b] = (counts[a][b] + SMOOTHING) / total
+            probs[a][b] = (counts[a][b] + parameters["langmodel"]["smoothing"]) / total
 
     return probs
 
@@ -61,15 +57,15 @@ def _build_dawg_from_word_frequencies(word_frequencies, min_freq=2):
 
 
 def train():
-    os.makedirs(MODELS_DIR, exist_ok=True)
+    os.makedirs(parameters["train_dirs"]["models"], exist_ok=True)
 
-    if not os.path.exists(CORPUS_PATH):
-        print(f"Corpus not found at {CORPUS_PATH}")
+    if not os.path.exists(parameters["train_dirs"]["corpus"]):
+        print(f"Corpus not found at {parameters['train_dirs']['corpus']}")
         print("Download a plain text corpus e.g. from gutenberg.org and save it there.")
         return
 
     print("Loading corpus...")
-    text = _load_corpus(CORPUS_PATH)
+    text = _load_corpus(parameters["train_dirs"]["corpus"])
     
     # Count word frequencies
     all_words = re.findall(r"[a-z]+", text)
@@ -89,15 +85,15 @@ def train():
 
     print("Building bigram table...")
     bigrams = _build_bigrams(text)
-    with open(BIGRAM_PATH, "w", encoding="utf-8") as f:
+    with open(parameters["langmodel"]["bigram_path"], "w", encoding="utf-8") as f:
         json.dump(bigrams, f)
-    print(f"  Saved: {BIGRAM_PATH}")
+    print(f"  Saved: {parameters['langmodel']['bigram_path']}")
 
     print("Building DAWG...")
-    dawg = _build_dawg_from_word_frequencies(word_frequencies, MIN_WORD_FREQUENCY)
-    with open(DAWG_PATH, "wb") as f:
+    dawg = _build_dawg_from_word_frequencies(word_frequencies, parameters["langmodel"]["min_word_frequency"])
+    with open(parameters["langmodel"]["dawg_path"], "wb") as f:
         pickle.dump(dawg, f)
-    print(f"  Saved: {DAWG_PATH}")
+    print(f"  Saved: {parameters['langmodel']['dawg_path']}")
 
 
 if __name__ == "__main__":

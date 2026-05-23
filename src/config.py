@@ -1,27 +1,96 @@
-OUTPUT_DIR      = "output"
-PREPROCESS_DIR  = f"{OUTPUT_DIR}/preprocess"
-DETECT_DIR      = f"{OUTPUT_DIR}/detect"
-EXTRACT_DIR     = f"{OUTPUT_DIR}/extract"
-WORDS_DIR       = f"{OUTPUT_DIR}/words"
-CHARS_DIR       = f"{OUTPUT_DIR}/chars"
-TEST_IMAGES_DIR = "phone_images"
-IMAGE_FORMAT    = "jpg"
+output_paths = {
+    "output": "output",
+    "extract": "output/extract",
+    "preprocess": "output/preprocess",
+    "detect": "output/detect",
+    "recognize": "output/recognize",
+    "words": "output/words",
+    "chars": "output/chars"
+}
 
-MODELS_DIR   = "models/classical"
-EMNIST_DIR   = "data/emnist"
-DAWG_PATH = "models/classical/langmodel/dawg.pkl"
-MODEL_PATH   = f"{MODELS_DIR}/SVM/classifier.pkl"
-SCALER_PATH  = f"{MODELS_DIR}/SVM/scaler.pkl"
-ENCODER_PATH = f"{MODELS_DIR}/SVM/encoder.pkl"
-TOP_K        = 5
+images = {
+    "path": "data/test/sample",
+    "format": "jpg"
+}
 
-CNN_MODEL_PATH   = f"{MODELS_DIR}/CNN/cnn_model.pth"
-CNN_ENCODER_PATH = f"{MODELS_DIR}/CNN/cnn_encoder.pkl"
-
-RF_MODEL_PATH   = f"{MODELS_DIR}/RF/rf_model.pkl"
-RF_SCALER_PATH  = f"{MODELS_DIR}/RF/rf_scaler.pkl"
-RF_ENCODER_PATH = f"{MODELS_DIR}/RF/rf_encoder.pkl"
-
-AH_HEIGHT_MIN      = 0.3
-AH_HEIGHT_MAX      = 4.5
-AH_AREA_MIN        = 0.05
+parameters = {
+    "extract": {
+        "edge_threshold": 125,
+        "expand_frac": 0.2
+    },
+    "orient": {
+        "course_step": 5,
+        "fine_step": 1,
+        "fine_range": 5
+    },
+    "average": {
+        "height_min": 0.3,
+        "height_max": 4.5,
+        "area_min": 0.05
+    },
+    "lines": {
+        "kde_bandwidth": 0.6,
+        "peak_prominence": 0.15,
+        "max_assign_dist": 1.2,
+        "orphan_min_members": 3,
+        "line_pad_fraction": 0.15
+    },
+    "words": {
+        "word_gap_scale": 0.75
+    },
+    "chars": {
+        "min_char_width": 0.1,
+        "max_char_width": 1.8,
+        "chop_min_valley": 0.35,
+        "chop_max_valley": 0.4
+    },
+    "recognize": {
+        "high_conf": 0.75,
+        "min_conf": 0.30,
+        "min_word_conf": 0.30,
+        "max_question_mark_ratio": 0.25,
+        "max_candidates": 5,
+        "merge_threshold": 0.60
+    },
+    "features": {
+        "norm_size": 64,
+        "grid_rows": 8,
+        "grid_cols": 8,
+        "outline_samples": 64,
+        "direction_bins": 16,
+        "profile_bins": 16
+    },
+    "langmodel": {
+        "dawg_path": "models/classical/langmodel/dawg.pkl",
+        "bigram_path": "models/classical/langmodel/bigrams.json",
+        "bigram_weight": 0.3,
+        "dawg_boost": 0.25,
+        "smoothing": 0.01,
+        "min_word_frequency": 2
+    },
+    "SVM": {
+        "model_path": "models/classical/SVM/classifier.pkl",
+        "scaler_path": "models/classical/SVM/scaler.pkl",
+        "encoder_path": "models/classical/SVM/encoder.pkl",
+        "TOP_K": 5
+    },
+    "CNN": {
+        "model_path": "models/classical/CNN/cnn_model.pth",
+        "encoder_path": "models/classical/CNN/cnn_encoder.pkl",
+        "TOP_K": 5,
+        "norm_size": 28
+    },
+    "RF": {
+        "model_path": "models/classical/RF/rf_model.pkl",
+        "scaler_path": "models/classical/RF/rf_scaler.pkl",
+        "encoder_path": "models/classical/RF/rf_encoder.pkl",
+        "TOP_K": 5
+    },
+    "train_dirs": {
+        "models": "models/classical",
+        "corpus": "data/train/langmodel/books.txt",
+        "emnist": "data/train/emnist",
+        "chars74k": "data/train/chars74k/EnglishFnt/",
+        "synthetic": "data/train/synthetic_chars/"
+    }
+}

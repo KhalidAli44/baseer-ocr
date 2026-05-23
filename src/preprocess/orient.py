@@ -1,9 +1,7 @@
 import cv2
 import numpy as np
 
-COARSE_STEP  = 5
-FINE_STEP    = 1
-FINE_RANGE   = 5
+from src.config import parameters
 
 
 def _rotate(binary, angle):
@@ -14,12 +12,10 @@ def _rotate(binary, angle):
                           borderMode=cv2.BORDER_CONSTANT,
                           borderValue=255)
 
-
 def _score(binary, angle):
     rotated = _rotate(binary, angle)
     proj    = np.sum(rotated < 128, axis=1).astype(float)
     return np.var(proj)
-
 
 def orient(binary):
     if binary.shape[1] > 800:
@@ -30,10 +26,10 @@ def orient(binary):
     else:
         small = binary.copy()
     
-    coarse_angles = range(-90, 91, COARSE_STEP)
+    coarse_angles = range(-90, 91, parameters["orient"]["course_step"])
     best          = max(coarse_angles, key=lambda a: _score(small, a))
 
-    fine_angles   = np.arange(best - FINE_RANGE, best + FINE_RANGE + FINE_STEP, FINE_STEP)
+    fine_angles   = np.arange(best - parameters["orient"]["fine_range"], best + parameters["orient"]["fine_range"] + parameters["orient"]["fine_step"], parameters["orient"]["fine_step"])
     best          = float(max(fine_angles, key=lambda a: _score(small, a)))
 
     if abs(best) < 0.5:

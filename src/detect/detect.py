@@ -1,10 +1,10 @@
 import cv2
 import numpy as np
 
-from config import WORDS_DIR, CHARS_DIR, DETECT_DIR
-from lines  import detect_lines
-from words  import detect_words
-from chars  import detect_chars
+from src.config import output_paths
+from src.detect.lines  import detect_lines
+from src.detect.words  import detect_words
+from src.detect.chars  import detect_chars
 
 
 def _is_valid_word(w, h, area, median_h):
@@ -15,7 +15,6 @@ def _is_valid_word(w, h, area, median_h):
         and 0.4  < h    / (median_h + 1e-5) < 1.6
         and 0.08 < area / (w * h  + 1e-5)
     )
-
 
 def detect(binary, frame_number=0):
     img_h, img_w          = binary.shape
@@ -47,7 +46,7 @@ def detect(binary, frame_number=0):
             cv2.rectangle(vis, (ax1, ay1), (ax2, ay2), (0, 200, 0), 3)
 
             word_crop = binary[ay1:ay2, ax1:ax2]
-            wfname    = f"{WORDS_DIR}/{word_idx:05d}_f{frame_number:03d}_l{li:04d}_x{ax1:05d}.png"
+            wfname    = f"{output_paths['words']}/{word_idx:05d}_f{frame_number:03d}_l{li:04d}_x{ax1:05d}.png"
             cv2.imwrite(wfname, word_crop)
             word_meta.append((wfname, li, ax1, word_idx))
 
@@ -60,12 +59,12 @@ def detect(binary, frame_number=0):
                 h, w = char_crop.shape
                 padded_char = np.ones((h + 2*padding, w + 2*padding), dtype=np.uint8) * 255
                 padded_char[padding:padding+h, padding:padding+w] = char_crop
-                cfname    = f"{CHARS_DIR}/{char_idx:05d}_f{frame_number:03d}_w{word_idx:04d}_x{cx1:05d}.png"
+                cfname    = f"{output_paths['chars']}/{char_idx:05d}_f{frame_number:03d}_w{word_idx:04d}_x{cx1:05d}.png"
                 cv2.imwrite(cfname, padded_char)
                 char_idx += 1
 
             word_idx += 1
 
-    cv2.imwrite(f"{DETECT_DIR}/box_{frame_number}.png", vis)
+    cv2.imwrite(f"{output_paths['detect']}/box_{frame_number}.png", vis)
     print(f"[2] Detection done")
     return word_meta

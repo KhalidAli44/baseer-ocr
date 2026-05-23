@@ -1,12 +1,13 @@
 import os
+
 import cv2
 import numpy as np
 import pickle
 from sklearn.svm import SVC
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 
-from features import extract_batch
-from config import MODELS_DIR, MODEL_PATH, SCALER_PATH, ENCODER_PATH
+from src.config import parameters
+from src.utils.features import extract_batch
 
 SYNTHETIC_PATH = "data/synthetic_chars/"
 MAX_PER_CLASS = 500
@@ -101,7 +102,7 @@ def load_synthetic_dataset(data_path, max_per_class=500, augment_ratio=0.3):
 
 
 def train():
-    os.makedirs(MODELS_DIR, exist_ok=True)
+    os.makedirs(parameters["train_dirs"]["models"], exist_ok=True)
     
     print("=" * 50)
     print("Loading synthetic dataset...")
@@ -143,16 +144,16 @@ def train():
     scores = cross_val_score(clf, X_scaled, y, cv=3, scoring="accuracy", n_jobs=-1)
     print(f"\nCross-val accuracy: {scores.mean():.3f} ± {scores.std():.3f}")
     
-    with open(MODEL_PATH, "wb") as f:
+    with open(parameters["SVM"]["model_path"], "wb") as f:
         pickle.dump(clf, f)
-    with open(SCALER_PATH, "wb") as f:
+    with open(parameters["SVM"]["scaler_path"], "wb") as f:
         pickle.dump(scaler, f)
-    with open(ENCODER_PATH, "wb") as f:
+    with open(parameters["SVM"]["encoder_path"], "wb") as f:
         pickle.dump(encoder, f)
     
-    print(f"\nSaved: {MODEL_PATH}")
-    print(f"Saved: {SCALER_PATH}")
-    print(f"Saved: {ENCODER_PATH}")
+    print(f"\nSaved: {parameters['SVM']['model_path']}")
+    print(f"Saved: {parameters['SVM']['scaler_path']}")
+    print(f"Saved: {parameters['SVM']['encoder_path']}")
 
 
 if __name__ == "__main__":
