@@ -1,0 +1,43 @@
+import cv2
+import numpy as np
+
+COARSE_STEP  = 5
+FINE_STEP    = 1
+FINE_RANGE   = 5
+
+
+def _rotate(binary, angle):
+    h, w = binary.shape
+    M = cv2.getRotationMatrix2D((w / 2, h / 2), angle, 1.0)
+    return cv2.warpAffine(binary, M, (w, h),
+                          flags=cv2.INTER_NEAREST,
+                          borderMode=cv2.BORDER_CONSTANT,
+                          borderValue=255)
+
+
+def _score(binary, angle):
+    rotated = _rotate(binary, angle)
+    proj    = np.sum(rotated < 128, axis=1).astype(float)
+    return np.var(proj)
+
+
+def orient(binary):
+    if binary.shape[1] > 800:
+        new_width = 800
+        new_height = int(binary.shape[0] * 800 / binary.shape[1])
+        small = cv2.resize(binary, (new_width, new_height), 
+                          interpolation=cv2.INTER_NEAREST)
+    else:
+        small = binary.copy()
+    
+    coarse_angles = range(-90, 91, COARSE_STEP)
+    best          = max(coarse_angles, key=lambda a: _score(small, a))
+
+    fine_angles   = np.arange(best - FINE_RANGE, best + FINE_RANGE + FINE_STEP, FINE_STEP)
+    best          = float(max(fine_angles, key=lambda a: _score(small, a)))
+
+    if abs(best) < 0.5:
+        return binary, 0.0
+
+    corrected = _rotate(binary, best)
+    return corrected, best
