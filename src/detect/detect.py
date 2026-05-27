@@ -16,14 +16,15 @@ def _is_valid_word(w, h, area, median_h):
         and 0.08 < area / (w * h  + 1e-5)
     )
 
-def detect(binary, frame_number=0):
-    img_h, img_w          = binary.shape
-    vis                   = cv2.cvtColor(binary, cv2.COLOR_GRAY2BGR)
-    word_meta             = []
-    word_idx = char_idx   = 0
-    heights = []
+def detect(binary, save_output=False, frame_number=0):
+    img_h, img_w = binary.shape
+    vis          = cv2.cvtColor(binary, cv2.COLOR_GRAY2BGR)
+    word_idx = char_idx = 0
+    char_entries  = []
+    word_line_map = {}
 
-    lines, ah     = detect_lines(binary)
+    heights = []
+    lines, ah = detect_lines(binary)
 
     for li, (ls, le) in enumerate(lines):
         words = detect_words(binary, ls, le, ah)
@@ -46,9 +47,11 @@ def detect(binary, frame_number=0):
             cv2.rectangle(vis, (ax1, ay1), (ax2, ay2), (0, 200, 0), 3)
 
             word_crop = binary[ay1:ay2, ax1:ax2]
-            wfname    = f"{output_paths['words']}/{word_idx:05d}_f{frame_number:03d}_l{li:04d}_x{ax1:05d}.png"
-            cv2.imwrite(wfname, word_crop)
-            word_meta.append((wfname, li, ax1, word_idx))
+            word_line_map[(frame_number, word_idx)] = (li, ax1, frame_number)
+
+            if save_output:
+                wfname    = f"{output_paths['words']}/f{frame_number}_l{li}_w{word_idx}_x{ax1}.png"
+                cv2.imwrite(wfname, word_crop)
 
             chars = detect_chars(word_crop, ax1, ay1, ah)
             for cx1, cy1, cx2, cy2 in chars:
@@ -59,12 +62,15 @@ def detect(binary, frame_number=0):
                 h, w = char_crop.shape
                 padded_char = np.ones((h + 2*padding, w + 2*padding), dtype=np.uint8) * 255
                 padded_char[padding:padding+h, padding:padding+w] = char_crop
-                cfname    = f"{output_paths['chars']}/{char_idx:05d}_f{frame_number:03d}_w{word_idx:04d}_x{cx1:05d}.png"
-                cv2.imwrite(cfname, padded_char)
+                char_entries.append((char_idx, frame_number, word_idx, cx1, padded_char))
+                if save_output:
+                    cfname    = f"{output_paths['chars']}/f{frame_number}_w{word_idx}_c{char_idx}_x{cx1}.png"
+                    cv2.imwrite(cfname, padded_char)
                 char_idx += 1
 
             word_idx += 1
 
-    cv2.imwrite(f"{output_paths['detect']}/box_{frame_number}.png", vis)
-    print(f"[2] Detection done")
-    return word_meta
+    if save_output:
+        cv2.imwrite(f"{output_paths['detect']}/box_{frame_number}.png", vis)
+    print(f"[2] Detection done for frame {frame_number}")
+    return char_entries, word_line_map

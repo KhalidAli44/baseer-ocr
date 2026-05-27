@@ -492,9 +492,9 @@ def _load_char_crops():
         if not fname.endswith(".png"):
             continue
         parts = fname.replace(".png", "").split("_")
-        char_idx = int(parts[0])
-        frame_idx = int(parts[1][1:])
-        word_idx = int(parts[2][1:])
+        frame_idx = int(parts[0][1:])
+        word_idx = int(parts[1][1:])
+        char_idx = int(parts[2][1:])
         x = int(parts[3][1:])
         entries.append((char_idx, frame_idx, word_idx, x, os.path.join(output_paths["chars"], fname)))
     return sorted(entries, key=lambda e: (e[1], e[2], e[3]))
@@ -506,34 +506,40 @@ def _load_word_line_map():
         if not fname.endswith(".png"):
             continue
         parts = fname.replace(".png", "").split("_")
-        word_idx = int(parts[0])
-        frame_idx = int(parts[1][1:])
-        li = int(parts[2][1:])
+        frame_idx = int(parts[0][1:])
+        li = int(parts[1][1:])
+        word_idx = int(parts[2][1:])
         x = int(parts[3][1:])
         mapping[(frame_idx, word_idx)] = (li, x, frame_idx)
     return mapping
 
 
-def recognize():
-    if not os.path.exists(output_paths["chars"]) or not os.listdir(output_paths["chars"]):
-        print("No character crops found. Run detect first.")
-        return ""
-    
-    clf = SVMClassifier()
-    # clf     = CNNClassifier()
-    # clf     = RFClassifier()
-    dawg = _load_dawg()
-    
-    entries = _load_char_crops()
-    if not entries:
+def recognize(char_entries=None, word_line_map=None, save_output=False):
+    if char_entries is None:
+        if not os.path.exists(output_paths["chars"]) or not os.listdir(output_paths["chars"]):
+            print("No character crops found. Run detect first.")
+            return ""
+        raw_entries = _load_char_crops()
+        if not raw_entries:
+            print("No character entries found.")
+            return ""
+        char_entries = [
+            (ci, fi, wi, x, cv2.imread(fp, cv2.IMREAD_GRAYSCALE))
+            for ci, fi, wi, x, fp in raw_entries
+        ]
+        word_line_map = _load_word_line_map()
+
+    if not char_entries:
         print("No character entries found.")
         return ""
-    
+
+    clf = SVMClassifier()
+    dawg = _load_dawg()
+
     word_entries = defaultdict(list)
-    for e in entries:
-        char_idx, frame_idx, word_idx, x, filepath = e
-        word_entries[(frame_idx, word_idx)].append((char_idx, x, filepath))
-    
+    for ci, fi, wi, x, img in char_entries:
+        word_entries[(fi, wi)].append((ci, x, img))
+
     for key in word_entries:
         word_entries[key].sort(key=lambda e: e[1])
     
@@ -545,8 +551,7 @@ def recognize():
         valid_entries = []
         
         for e in char_entries_list:
-            char_idx, x, filepath = e
-            img = cv2.imread(filepath, cv2.IMREAD_GRAYSCALE)
+            char_idx, x, img = e
             if img is not None and img.size > 0:
                 images.append(img)
                 valid_entries.append(e)
@@ -578,23 +583,22 @@ def recognize():
         )
         all_reports.append(report.generate_report())
     
-    os.makedirs(output_paths["recognize"], exist_ok=True)
-    report_path = f"{output_paths['recognize']}/decoding_report.txt"
-    with open(report_path, "w", encoding="utf-8") as f:
-        f.write("="*80 + "\n")
-        f.write("OCR DECODING REPORT\n")
-        f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-        f.write("="*80 + "\n")
-        f.write(f"Dictionary loaded: {dawg is not None}\n")
-        f.write(f"High confidence threshold: {parameters['recognize']['high_conf']}\n")
-        f.write(f"Min confidence threshold: {parameters['recognize']['min_conf']}\n")
-        f.write(f"Merge threshold: {parameters['recognize']['merge_threshold']}\n")
-        f.write("="*80 + "\n")
-        
-        for report in all_reports:
-            f.write(report)
-    
-    word_line_map = _load_word_line_map()
+    if save_output:
+        os.makedirs(output_paths["recognize"], exist_ok=True)
+        report_path = f"{output_paths['recognize']}/decoding_report.txt"
+        with open(report_path, "w", encoding="utf-8") as f:
+            f.write("="*80 + "\n")
+            f.write("OCR DECODING REPORT\n")
+            f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write("="*80 + "\n")
+            f.write(f"Dictionary loaded: {dawg is not None}\n")
+            f.write(f"High confidence threshold: {parameters['recognize']['high_conf']}\n")
+            f.write(f"Min confidence threshold: {parameters['recognize']['min_conf']}\n")
+            f.write(f"Merge threshold: {parameters['recognize']['merge_threshold']}\n")
+            f.write("="*80 + "\n")
+            
+            for report in all_reports:
+                f.write(report)
     
     line_words = {}
     for (frame_idx, word_idx), text in word_strings.items():
@@ -609,8 +613,9 @@ def recognize():
         for k in sorted(line_words)
     )
     
-    with open(f"{output_paths['recognize']}/recognized.txt", "w", encoding="utf-8") as f:
-        f.write(raw_text_out)
+    if save_output:
+        with open(f"{output_paths['recognize']}/recognized.txt", "w", encoding="utf-8") as f:
+            f.write(raw_text_out)
     
     corrected_lines = []
     raw_lines = raw_text_out.split('\n')
@@ -629,8 +634,9 @@ def recognize():
     
     text_out = '\n'.join(corrected_lines)
     
-    with open(f"{output_paths['recognize']}/corrected_recognized.txt", "w", encoding="utf-8") as f:
-        f.write(text_out)
+    if save_output:
+        with open(f"{output_paths['recognize']}/corrected_recognized.txt", "w", encoding="utf-8") as f:
+            f.write(text_out)
     
     print(f"[3] Recognition done")
     return text_out

@@ -16,9 +16,6 @@ def _edge_map(gray):
     edges = (np.abs(sobel) > parameters["extract"]["edge_threshold"]).astype(np.uint8) * 255
     kernel = np.ones((2, 2), np.uint8)
     edges = cv2.morphologyEx(edges, cv2.MORPH_OPEN, kernel, iterations=1)
-    
-    os.makedirs(output_paths["extract"], exist_ok=True)
-    cv2.imwrite(f"{output_paths['extract']}/edges.png", edges)
 
     return edges
 
@@ -50,34 +47,41 @@ def _add_padding(boxes, img_width, img_height):
         padded.append((x1, y1, x2, y2))
     return padded
 
-def extract(image):
+def extract(image, save_output=False):
     gray = _to_gray(image)
     img_height, img_width = gray.shape
     
     edges = _edge_map(gray)
+    if save_output:
+        os.makedirs(output_paths["extract"], exist_ok=True)
+        cv2.imwrite(f"{output_paths['extract']}/edges.png", edges)
     
     connected_h = _connect_text_horizontally(edges)
     
-    cv2.imwrite(f"{output_paths['extract']}/connected_horizontal.png", connected_h)
+    if save_output:
+        cv2.imwrite(f"{output_paths['extract']}/connected_horizontal.png", connected_h)
     
     boxes = _get_bounding_boxes(connected_h)
     
-    debug_img = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
-    for x1, y1, x2, y2 in boxes:
-        cv2.rectangle(debug_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-    cv2.imwrite(f"{output_paths['extract']}/initial_boxes.png", debug_img)
+    if save_output:
+        debug_img = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
+        for x1, y1, x2, y2 in boxes:
+            cv2.rectangle(debug_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        cv2.imwrite(f"{output_paths['extract']}/initial_boxes.png", debug_img)
     
-    debug_img = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
-    for x1, y1, x2, y2 in boxes:
-        cv2.rectangle(debug_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-    cv2.imwrite(f"{output_paths['extract']}/merged_boxes.png", debug_img)
+    if save_output:
+        debug_img = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
+        for x1, y1, x2, y2 in boxes:
+            cv2.rectangle(debug_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        cv2.imwrite(f"{output_paths['extract']}/merged_boxes.png", debug_img)
     
     boxes = _add_padding(boxes, img_width, img_height)
     
-    debug_img = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
-    for x1, y1, x2, y2 in boxes:
-        cv2.rectangle(debug_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-    cv2.imwrite(f"{output_paths['extract']}/final_lines.png", debug_img)
+    if save_output:
+        debug_img = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
+        for x1, y1, x2, y2 in boxes:
+            cv2.rectangle(debug_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        cv2.imwrite(f"{output_paths['extract']}/final_lines.png", debug_img)
 
     frames = []
     

@@ -38,6 +38,8 @@ def detect_lines(binary, ah=None):
 
     density  = gaussian_filter1d(votes, sigma=sigma)
     min_dist = int(ah * 0.8)
+    if min_dist == 0:
+        min_dist = 1
     peaks, _ = find_peaks(density,
                           distance=min_dist,
                           height=density.max() * parameters["lines"]["peak_prominence"])

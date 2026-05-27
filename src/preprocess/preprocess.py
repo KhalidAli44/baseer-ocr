@@ -79,7 +79,7 @@ def _separate_characters(binary):
     )
     return cv2.erode(binary, kernel, iterations=5)
 
-def preprocess(image, frame_number=0):
+def preprocess(image, save_output=False, frame_number=0):
     gray = _to_grayscale(image)
     gray = _normalize_scale(gray)
     gray = _denoise(gray)
@@ -89,7 +89,8 @@ def preprocess(image, frame_number=0):
     cleaned = _invert_if_dark_background(cleaned)
     cleaned = _separate_characters(cleaned)
     oriented, _ = orient(cleaned)
-    cv2.imwrite(f"{output_paths['preprocess']}/denoised_{frame_number}.png",  gray)
-    cv2.imwrite(f"{output_paths['preprocess']}/binarized_{frame_number}.png",  binary)
-    cv2.imwrite(f"{output_paths['preprocess']}/cleaned_{frame_number}.png",  cleaned)
+    if save_output:
+        cv2.imwrite(f"{output_paths['preprocess']}/denoised_{frame_number}.png",  gray)
+        cv2.imwrite(f"{output_paths['preprocess']}/binarized_{frame_number}.png",  binary)
+        cv2.imwrite(f"{output_paths['preprocess']}/cleaned_{frame_number}.png",  cleaned)
     return oriented
