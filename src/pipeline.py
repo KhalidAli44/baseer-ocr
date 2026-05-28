@@ -20,6 +20,5 @@ def main():
 
     print(recognize(char_entries=all_char_entries, word_line_map=all_word_line_map, save_output=save_output))
 
-
 if __name__ == "__main__":
     main()
