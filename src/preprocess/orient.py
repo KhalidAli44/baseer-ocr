@@ -34,6 +34,12 @@ def orient(binary):
 
     if abs(best) < 0.5:
         return binary, 0.0
+    
+    h, w = binary.shape[:2]
+    if max(h, w) >= 32767:
+        scale  = 32766 / max(h, w)
+        binary = cv2.resize(binary, (int(w * scale), int(h * scale)),
+                            interpolation=cv2.INTER_NEAREST)
 
     corrected = _rotate(binary, best)
     return corrected, best

@@ -12,7 +12,7 @@ def _to_grayscale(image):
         image = cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
     return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-def _normalize_scale(gray, target_dpi_height = 2000):
+def _normalize_scale(gray, target_dpi_height = 1000):
     h = gray.shape[0]
     if h == target_dpi_height:
         return gray
@@ -60,6 +60,7 @@ def _morphological_clean(binary):
         cv2.MORPH_ELLIPSE, (base_unit, base_unit)
     )
     opened = cv2.morphologyEx(binary, cv2.MORPH_OPEN, noise_kernel, iterations=1)
+    base_unit = max(1, binary.shape[0] // 40)
     gap_kernel = cv2.getStructuringElement(
         cv2.MORPH_RECT, (base_unit, base_unit)
     )
@@ -73,11 +74,11 @@ def _invert_if_dark_background(binary):
     return binary
 
 def _separate_characters(binary):
-    base_unit = max(1, binary.shape[0] // 1500)
-    kernel = cv2.getStructuringElement(
-        cv2.MORPH_ELLIPSE, (base_unit, base_unit)
+    base_unit = max(1, binary.shape[0] // 500)
+    kernel    = cv2.getStructuringElement(
+        cv2.MORPH_RECT, (base_unit, 1)
     )
-    return cv2.erode(binary, kernel, iterations=5)
+    return cv2.erode(binary, kernel, iterations=1)
 
 def preprocess(image, save_output=False, frame_number=0):
     gray = _to_grayscale(image)
@@ -85,9 +86,11 @@ def preprocess(image, save_output=False, frame_number=0):
     gray = _denoise(gray)
     gray = _normalize_background(gray)
     binary = _binarize(gray)
-    cleaned = _morphological_clean(binary)
-    cleaned = _invert_if_dark_background(cleaned)
+    cleaned = _invert_if_dark_background(binary)
+    cleaned = cv2.bitwise_not(cleaned)
+    cleaned = _morphological_clean(cleaned)
     cleaned = _separate_characters(cleaned)
+    cleaned = cv2.bitwise_not(cleaned)
     oriented, _ = orient(cleaned)
     if save_output:
         cv2.imwrite(f"{output_paths['preprocess']}/denoised_{frame_number}.png",  gray)
