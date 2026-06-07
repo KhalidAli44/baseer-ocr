@@ -1,15 +1,17 @@
 import os
-
 import cv2
 import numpy as np
-import pickle
-from sklearn.svm import SVC
+import joblib
+from sklearn.svm import LinearSVC
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 
-from src.config import parameters
-from src.utils.features import extract_batch
+from features import extract_batch
+from config import MODELS_DIR, MODEL_PATH, SCALER_PATH, ENCODER_PATH
 
-MAX_PER_CLASS = 1000
+CHARS74K_PATH = "data/chars74k/EnglishFnt/"
+SYNTHETIC_PATH = "data/synthetic_chars/"
+MAX_PER_CLASS = 500
 
 
 def preprocess_character(img, apply_augmentation=False):
@@ -145,17 +147,17 @@ def load_synthetic_dataset(data_path, max_per_class=500, augment_ratio=0.3):
 
 
 def train():
-    os.makedirs(parameters["train_dirs"]["models"], exist_ok=True)
+    os.makedirs(MODELS_DIR, exist_ok=True)
     
     print("=" * 50)
     print("Loading datasets...")
     print("=" * 50)
     
     print("\nLoading Chars74K dataset...")
-    chars74k_images, chars74k_targets = load_chars74k(parameters["train_dirs"]["chars74k"], MAX_PER_CLASS)
+    chars74k_images, chars74k_targets = load_chars74k(CHARS74K_PATH, MAX_PER_CLASS)
     
     print("\nLoading synthetic dataset...")
-    synthetic_images, synthetic_targets = load_synthetic_dataset(parameters["train_dirs"]["synthetic"], MAX_PER_CLASS, augment_ratio=0.3)
+    synthetic_images, synthetic_targets = load_synthetic_dataset(SYNTHETIC_PATH, MAX_PER_CLASS, augment_ratio=0.3)
     
     all_images = chars74k_images + synthetic_images
     all_targets = chars74k_targets + synthetic_targets
@@ -181,31 +183,26 @@ def train():
     print("\n" + "=" * 50)
     print("Training SVM...")
     print("=" * 50)
-    clf = SVC(
-        kernel="rbf",
-        C=10.0,
-        gamma="scale",
-        probability=True,
-        decision_function_shape="ovr",
+    _base = LinearSVC(
+        C=1.0,
+        max_iter=2000,
         class_weight="balanced",
         verbose=True,
     )
+    clf = CalibratedClassifierCV(_base, cv=3)
     clf.fit(X_scaled, y)
     
     from sklearn.model_selection import cross_val_score
     scores = cross_val_score(clf, X_scaled, y, cv=3, scoring="accuracy", n_jobs=-1)
     print(f"\nCross-val accuracy: {scores.mean():.3f} ± {scores.std():.3f}")
+
+    joblib.dump(clf,     MODEL_PATH,   compress=3)
+    joblib.dump(scaler,  SCALER_PATH,  compress=3)
+    joblib.dump(encoder, ENCODER_PATH, compress=3)
     
-    with open(parameters["SVM"]["model_path"], "wb") as f:
-        pickle.dump(clf, f)
-    with open(parameters["SVM"]["scaler_path"], "wb") as f:
-        pickle.dump(scaler, f)
-    with open(parameters["SVM"]["encoder_path"], "wb") as f:
-        pickle.dump(encoder, f)
-    
-    print(f"\nSaved: {parameters['SVM']['model_path']}")
-    print(f"Saved: {parameters['SVM']['scaler_path']}")
-    print(f"Saved: {parameters['SVM']['encoder_path']}")
+    print(f"\nSaved: {MODEL_PATH}")
+    print(f"Saved: {SCALER_PATH}")
+    print(f"Saved: {ENCODER_PATH}")
 
 
 if __name__ == "__main__":
